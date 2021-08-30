@@ -35,14 +35,14 @@ pub struct BlackholeSink {
 #[serde(deny_unknown_fields, default)]
 #[derivative(Default)]
 pub struct BlackholeConfig {
-    #[derivative(Default(value = "10"))]
+    #[derivative(Default(value = "1"))]
     #[serde(default = "default_print_interval_secs")]
     pub print_interval_secs: u64,
     pub rate: Option<usize>,
 }
 
 fn default_print_interval_secs() -> u64 {
-    10
+    1
 }
 
 inventory::submit! {
@@ -98,7 +98,7 @@ impl StreamSink for BlackholeSink {
         let total_events = self.total_events.clone();
         let total_raw_bytes = self.total_raw_bytes.clone();
         let interval_dur = Duration::from_secs(self.config.print_interval_secs);
-        let (tx, mut rx) = watch::channel(());
+        let (shutdown, mut tripwire) = watch::channel(());
 
         tokio::spawn(async move {
             let mut print_interval = interval(interval_dur);
@@ -110,7 +110,7 @@ impl StreamSink for BlackholeSink {
                             raw_bytes_collected = total_raw_bytes.load(Ordering::Relaxed),
                         }, "Total events collected");
                     },
-                    _ = rx.changed() => break,
+                    _ = tripwire.changed() => break,
                 }
             }
 
@@ -145,7 +145,7 @@ impl StreamSink for BlackholeSink {
         }
 
         // Notify the reporting task to shutdown.
-        let _ = tx.send(());
+        let _ = shutdown.send(());
 
         Ok(())
     }
