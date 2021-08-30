@@ -14,13 +14,13 @@ pub enum ComponentScope {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ComponentId {
+pub struct ComponentKey {
     value: String,
     id: String,
     scope: ComponentScope,
 }
 
-impl ComponentId {
+impl ComponentKey {
     pub fn global<T: Into<String>>(id: T) -> Self {
         let id = id.into();
         Self {
@@ -63,13 +63,13 @@ impl ComponentId {
     }
 }
 
-impl From<String> for ComponentId {
+impl From<String> for ComponentKey {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
     }
 }
 
-impl From<&str> for ComponentId {
+impl From<&str> for ComponentKey {
     fn from(value: &str) -> Self {
         let parts = value.split('#').take(2).collect::<Vec<_>>();
         if parts.len() == 2 {
@@ -88,19 +88,19 @@ impl From<&str> for ComponentId {
     }
 }
 
-impl<T: ToString> From<&T> for ComponentId {
+impl<T: ToString> From<&T> for ComponentKey {
     fn from(value: &T) -> Self {
         Self::from(value.to_string())
     }
 }
 
-impl fmt::Display for ComponentId {
+impl fmt::Display for ComponentKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt(f)
     }
 }
 
-impl Serialize for ComponentId {
+impl Serialize for ComponentKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -109,22 +109,22 @@ impl Serialize for ComponentId {
     }
 }
 
-impl Ord for ComponentId {
+impl Ord for ComponentKey {
     fn cmp(&self, other: &Self) -> Ordering {
         self.id.cmp(&other.id)
     }
 }
 
-impl PartialOrd for ComponentId {
+impl PartialOrd for ComponentKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-struct ComponentIdVisitor;
+struct ComponentKeyVisitor;
 
-impl<'de> Visitor<'de> for ComponentIdVisitor {
-    type Value = ComponentId;
+impl<'de> Visitor<'de> for ComponentKeyVisitor {
+    type Value = ComponentKey;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a string")
@@ -134,16 +134,16 @@ impl<'de> Visitor<'de> for ComponentIdVisitor {
     where
         E: de::Error,
     {
-        Ok(ComponentId::from(value))
+        Ok(ComponentKey::from(value))
     }
 }
 
-impl<'de> Deserialize<'de> for ComponentId {
-    fn deserialize<D>(deserializer: D) -> Result<ComponentId, D::Error>
+impl<'de> Deserialize<'de> for ComponentKey {
+    fn deserialize<D>(deserializer: D) -> Result<ComponentKey, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_string(ComponentIdVisitor)
+        deserializer.deserialize_string(ComponentKeyVisitor)
     }
 }
 
@@ -153,20 +153,20 @@ mod tests {
 
     #[test]
     fn deserialize_string() {
-        let result: ComponentId = serde_json::from_str("\"foo\"").unwrap();
+        let result: ComponentKey = serde_json::from_str("\"foo\"").unwrap();
         assert_eq!(result.id, "foo");
     }
 
     #[test]
     fn serialize_string() {
-        let item = ComponentId::from("foo");
+        let item = ComponentKey::from("foo");
         let result = serde_json::to_string(&item).unwrap();
         assert_eq!(result, "\"foo\"");
     }
 
     #[test]
     fn from_pipeline() {
-        let item = ComponentId::from("foo#bar");
+        let item = ComponentKey::from("foo#bar");
         assert_eq!(item.id(), "bar");
         assert_eq!(item.scope, ComponentScope::Pipeline("foo".into()));
         assert_eq!(item.to_string(), "foo#bar");
